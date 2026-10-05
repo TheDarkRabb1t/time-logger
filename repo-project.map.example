@@ -1,0 +1,12 @@
+# Copy to ~/.claude/time-logger/repo-project.map
+# Maps a local repo directory name to a Jira project key, tab separated.
+# Repos not listed are reported as untracked instead of matched to a ticket.
+#
+# The map is a hard filter, not a hint: work in a mapped repo can only ever be
+# proposed against that project's tickets.
+
+acme-api	ACME
+acme-web	WEB
+
+# Several projects for one repo, when its work spans them:
+# example-repo	PROJ,OTHER

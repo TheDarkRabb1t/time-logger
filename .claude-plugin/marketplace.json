@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claude-time-logger",
+  "description": "Session-based worklog and weekly timesheet drafts for Claude Code.",
+  "owner": {
+    "name": "TheDarkRabb1t",
+    "url": "https://github.com/TheDarkRabb1t"
+  },
+  "plugins": [
+    {
+      "name": "time-logger",
+      "description": "Logs every session to a weekly worklog and drafts a timesheet from sessions, git history and optionally Jira and your calendar.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}

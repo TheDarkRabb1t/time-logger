@@ -1,0 +1,12 @@
+config.sh
+jira-auth
+cal-ics
+cal-auth
+project-links.map
+worklogs/
+*.tsv
+last-weekly-report
+weekly-report.lock
+__pycache__/
+reap.lock
+.idea/

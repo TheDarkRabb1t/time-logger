@@ -1,0 +1,26 @@
+{
+  "name": "time-logger",
+  "version": "0.6.2",
+  "description": "Logs Claude Code and Codex sessions to a shared weekly worklog and drafts timesheets.",
+  "author": {
+    "name": "TheDarkRabb1t",
+    "url": "https://github.com/TheDarkRabb1t"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Time Logger",
+    "shortDescription": "Session worklogs and weekly timesheets",
+    "longDescription": "Collect coding sessions into a shared worklog and prepare weekly timesheet drafts from sessions, git, Jira, and calendars.",
+    "developerName": "TheDarkRabb1t",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Show this week's worklog",
+      "Summarise pending sessions",
+      "Draft last week's timesheet"
+    ]
+  }
+}
