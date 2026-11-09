@@ -1,0 +1,11 @@
+{
+  "name": "time-logger",
+  "version": "0.7.0",
+  "private": true,
+  "description": "Logs Claude Code, Codex and omp sessions to a shared weekly worklog and drafts timesheets.",
+  "license": "MIT",
+  "type": "module",
+  "omp": {
+    "extensions": ["./omp/index.ts"]
+  }
+}

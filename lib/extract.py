@@ -78,6 +78,47 @@ def main():
             elif item.get("phase") in ("final", "commentary", None):
                 assists.append(body[:1200])
             continue
+        # omp: a `session` header, then `message` entries whose role sits on
+        # the inner message. Tool results are their own `toolResult` role, so a
+        # `user` message is a prompt unless an extension or agent injected it.
+        if d.get("type") == "session":
+            cwd = d.get("cwd") or cwd
+            session_id = d.get("id") or session_id
+            continue
+        if d.get("type") == "message":
+            msg = d.get("message") or {}
+            role = msg.get("role")
+            if role not in ("user", "assistant", "toolResult"):
+                continue
+            ts = d.get("timestamp")
+            if ts:
+                first_ts = first_ts or ts
+                last_ts = ts
+                stamps.append(ts)
+            if role == "toolResult":
+                continue
+            content = msg.get("content")
+            parts = []
+            if isinstance(content, str):
+                parts.append(content)
+            elif isinstance(content, list):
+                for b in content:
+                    if not isinstance(b, dict):
+                        continue
+                    if b.get("type") == "text":
+                        parts.append(b.get("text", ""))
+                    elif b.get("type") == "toolCall" and role == "assistant":
+                        parts.append("[tool:%s]" % b.get("name"))
+            body = "\n".join(p for p in parts if p).strip()
+            if not body:
+                continue
+            if role == "user":
+                if msg.get("attribution") != "agent":
+                    turns += 1
+                    users.append(body[:1500])
+            else:
+                assists.append(body[:1200])
+            continue
         if d.get("type") not in ("user", "assistant") or d.get("isSidechain"):
             continue
 

@@ -82,7 +82,7 @@ Rules:
 $(sed -n '/^---$/,$p' "$CARD" | tail -n +2)"
 
     # CLAUDE_WORKLOG_CHILD stops this child session from logging itself.
-    RAW_SUMMARY=$(worklog_model "$WORKLOG_SUMMARY_MODEL" "$PROMPT" "$WORKLOG_SUMMARY_TIMEOUT")
+    RAW_SUMMARY=$(worklog_model summary "$PROMPT" "$WORKLOG_SUMMARY_TIMEOUT")
     RC=$?
     SUMMARY=$(printf '%s' "$RAW_SUMMARY" | tr '\n' ' ' | sed 's/  */ /g; s/^ *//; s/ *$//')
 

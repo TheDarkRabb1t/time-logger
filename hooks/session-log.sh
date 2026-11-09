@@ -3,7 +3,7 @@
 #
 # No model call in the hook: this blocks the session exiting, and a summary
 # costs 16-34 s. The row carries the facts and a sidecar carries the digest;
-# Codex starts a detached child to fill the summary.
+# Codex and omp start a detached child to fill the summary.
 #
 # Only ever runs on a clean exit. A closed terminal, a SIGKILL or a reboot never
 # fires SessionEnd, so worklog-reap.sh covers those from the transcripts.
@@ -60,7 +60,7 @@ fi
 # still this session's work.
 worklog_emit "$SESSION_ID" "$CONVO" 1
 
-if [ "${WORKLOG_AUTO_SUMMARISE:-}" = "codex" ]; then
+if [ -n "${WORKLOG_AUTO_SUMMARISE:-}" ]; then
     bash "$DIR/summary-start.sh" >/dev/null 2>&1
 fi
 

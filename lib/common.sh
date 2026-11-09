@@ -50,11 +50,25 @@ WORKLOG_HOME="${WORKLOG_HOME:-$HOME/.claude/time-logger}"
 
 : "${WORKLOG_TRANSCRIPT_DIR:=$HOME/.claude/projects}"
 : "${WORKLOG_CODEX_TRANSCRIPT_DIR:=$HOME/.codex/sessions}"
-: "${WORKLOG_MODEL_BACKEND:=claude}"
+: "${WORKLOG_OMP_TRANSCRIPT_DIR:=$HOME/.omp/agent/sessions}"
 : "${WORKLOG_CODEX_MODEL:=}"
-# Codex sets PLUGIN_ROOT as well as CLAUDE_PLUGIN_ROOT. Claude Code only sets
-# the latter, so its deferred-summary workflow stays unchanged.
-: "${WORKLOG_AUTO_SUMMARISE:=${PLUGIN_ROOT:+codex}}"
+# omp resolves role names (smol, default, slow) as well as model ids.
+: "${WORKLOG_OMP_SUMMARY_MODEL:=smol}"
+: "${WORKLOG_OMP_REPORT_MODEL:=default}"
+# Which harness fired the hook. The omp extension exports WORKLOG_HARNESS=omp;
+# Codex sets PLUGIN_ROOT as well as CLAUDE_PLUGIN_ROOT, Claude Code only the
+# latter; omp exports OMPCODE to the commands its agent runs. Empty means
+# Claude Code, whose deferred-summary workflow stays unchanged.
+if [ -z "${WORKLOG_HARNESS:-}" ]; then
+    if [ -n "${OMPCODE:-}" ]; then WORKLOG_HARNESS=omp
+    elif [ -n "${PLUGIN_ROOT:-}" ]; then WORKLOG_HARNESS=codex
+    fi
+fi
+: "${WORKLOG_MODEL_BACKEND:=${WORKLOG_HARNESS:-claude}}"
+# The backend a hook hands pending rows to in a detached child, or empty to
+# leave them for /timelog. No colon: `WORKLOG_AUTO_SUMMARISE=` in config.sh
+# turns it off for a harness that would otherwise default it on.
+: "${WORKLOG_AUTO_SUMMARISE=${WORKLOG_HARNESS:-}}"
 # How long a hook waits for its JSON payload on stdin before giving up. The
 # harness closes stdin, so the normal path returns at EOF without ever waiting;
 # this only bounds a caller that holds the pipe open and sends nothing.

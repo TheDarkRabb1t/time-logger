@@ -1,6 +1,6 @@
 # claude-time-logger
 
-Logs Claude Code and Codex sessions to a shared weekly worklog, then drafts a timesheet from
+Logs Claude Code, Codex and omp sessions to a shared weekly worklog, then drafts a timesheet from
 the sessions, your git history and, optionally, Jira and your calendar.
 
 Built because on Monday nobody remembers what they did last week. The deliverable
@@ -32,6 +32,46 @@ Codex transcripts are read from `~/.codex/sessions` by default. Hook-generated
 rows are summarised by a detached `codex exec` child with read-only sandbox and
 no approval prompts. The hook returns immediately and writes no chat context.
 `timelog` still drafts weekly reports when you request one.
+
+### omp
+
+omp reads the Claude marketplace catalog; a checkout works as a marketplace too
+(`omp plugin marketplace add ~/path/to/time-logger`):
+
+```
+omp plugin marketplace add TheDarkRabb1t/time-logger
+omp plugin install time-logger@claude-time-logger
+```
+
+Install through the marketplace rather than `omp plugin link`: a linked plugin
+loads the extension, but its slash commands get no `${CLAUDE_PLUGIN_ROOT}`.
+After editing a checkout, `omp plugin upgrade time-logger@claude-time-logger`
+reinstalls it.
+
+omp runs TypeScript extensions rather than command hooks, so `omp/index.ts`
+(declared in `package.json` under `omp.extensions`) feeds the same hook scripts
+the same JSON on `session_start` and `session_shutdown`, and around `/new`,
+`/resume` and `/fork`. Subagents are not logged as sessions of their own.
+Transcripts are read from `~/.omp/agent/sessions`. As in Codex, rows are
+summarised by a detached child: `omp -p --no-session --no-tools
+--no-extensions` on the `smol` role (`WORKLOG_OMP_SUMMARY_MODEL`; reports use
+`WORKLOG_OMP_REPORT_MODEL`, default `default`). Set `WORKLOG_AUTO_SUMMARISE=`
+in `config.sh` to leave rows for `timelog` instead.
+
+### Other harnesses
+
+There is no portable hook format yet: [Agent Plugins 1.0](https://agent-plugins.org/)
+standardises skills and MCP servers only, and the root `plugin.json` is that
+manifest, so any conforming client gets the skill. Logging a new harness takes:
+
+1. a reader for its transcript format in `lib/extract.py`;
+2. its transcript directory in `worklog-reap.sh`, which alone already logs
+   every session from the transcripts, a `WORKLOG_REAP_STALE_HOURS` late;
+3. optionally, for rows at session end, a thin adapter that pipes
+   `{session_id, cwd, transcript_path}` to `hooks/session-start.sh` and
+   `hooks/session-log.sh` — the `hooks.json` shape Claude Code and Codex
+   already share, or an extension like `omp/index.ts`;
+4. optionally, a `worklog_model` backend in `lib/model.sh`.
 
 ## What it produces
 
@@ -87,8 +127,12 @@ All optional. See `config.example.sh`.
 | `WORKLOG_SUMMARY_LOOKBACK_DAYS` | `60` |
 | `WORKLOG_REAP_MIN_MINUTES` | `1` |
 | `WORKLOG_CODEX_TRANSCRIPT_DIR` | `~/.codex/sessions` |
-| `WORKLOG_MODEL_BACKEND` | `claude` (Codex skill sets `codex` for generation) |
+| `WORKLOG_OMP_TRANSCRIPT_DIR` | `~/.omp/agent/sessions` |
+| `WORKLOG_MODEL_BACKEND` | the harness: `claude`, or `omp` inside omp (Codex skill sets `codex` for generation) |
+| `WORKLOG_AUTO_SUMMARISE` | `codex` in Codex hooks, `omp` in omp, else empty (`/timelog` fills rows) |
 | `WORKLOG_CODEX_MODEL` | unset (Codex default model) |
+| `WORKLOG_OMP_SUMMARY_MODEL` | `smol` (an omp role or model id) |
+| `WORKLOG_OMP_REPORT_MODEL` | `default` |
 
 Jira needs `~/.claude/time-logger/jira-auth` containing `email:api-token`, and a
 `repo-project.map` next to it. Auth is Basic, not Bearer. A read-only scoped token
@@ -203,12 +247,12 @@ session is killed; `git log --author` is thin but survives everything.
 ## Requirements
 
 `bash`, `python3`, `git`, and the `claude` CLI on `PATH`. Codex auto summaries
-also need `codex` and `flock`; `setsid` is used when available. The iCal calendar
+also need `codex` and `flock`, omp ones `omp` and `flock`; `setsid` is used when available. The iCal calendar
 source additionally needs `python3-dateutil`; nothing else does.
 
 ## Known limits
 
-In Codex, the "What was done" column reads `_(pending)_` until the detached
+In Codex and omp, the "What was done" column reads `_(pending)_` until the detached
 summary finishes. A failed summary remains pending for the next session start
 or `/timelog`.
 

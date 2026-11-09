@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SessionStart — record an open-session stub and schedule Codex summaries.
+# SessionStart — record an open-session stub and schedule detached summaries.
 #
 # The hook itself makes no model call. The old gate (a stamp, a lock, a
 # detached weekly-report run and an injection of the result) is gone: reports
@@ -64,7 +64,7 @@ PYEOF
 
 printf '%s\t%s\t%s\t%s\n' "$SID" "$(date -Is)" "$CWD" "$BRANCH" >> "$WORKLOG_STATE_DIR/open-sessions.tsv"
 
-if [ "${WORKLOG_AUTO_SUMMARISE:-}" = "codex" ]; then
+if [ -n "${WORKLOG_AUTO_SUMMARISE:-}" ]; then
     bash "$DIR/summary-start.sh" >/dev/null 2>&1
     exit 0
 fi

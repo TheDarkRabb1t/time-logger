@@ -25,6 +25,14 @@ WORKLOG_REPORT_MODEL="claude-sonnet-5"
 # WORKLOG_MODEL_BACKEND="codex"
 # WORKLOG_CODEX_MODEL="gpt-6-sol"  # unset to use your Codex default
 
+# omp sessions are scanned too. Inside omp the backend is omp on its own, and
+# its hooks summarise rows in a detached child; the empty value below leaves
+# them for /timelog instead.
+# WORKLOG_OMP_TRANSCRIPT_DIR="$HOME/.omp/agent/sessions"
+# WORKLOG_OMP_SUMMARY_MODEL="smol"     # an omp role or model id
+# WORKLOG_OMP_REPORT_MODEL="default"
+# WORKLOG_AUTO_SUMMARISE=
+
 # Jira is optional and skipped entirely when WORKLOG_JIRA_BASE is empty.
 # Auth file holds one line, "email:api-token", chmod 600.
 # A scoped read-only token is enough: read:jql:jira, read:issue:jira,
