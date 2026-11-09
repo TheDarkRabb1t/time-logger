@@ -7,7 +7,7 @@
 # the transcripts directly, so it does not depend on the stub having survived.
 #
 # No model call in the reaper — it writes rows and sidecars exactly as
-# session-log.sh does; Codex starts a detached summary child. Reaping stays
+# session-log.sh does; Codex and omp start a detached summary child. Reaping stays
 # detached because parsing a few hundred transcripts can take seconds.
 #
 # A separate hook rather than an addition to session-start.sh: hooks on the same
@@ -54,15 +54,27 @@ trap 'rmdir "$LOCK" 2>/dev/null || true; rm -f "$CONVO"' EXIT
 TRANSCRIPT_DIRS=()
 [ -d "$WORKLOG_TRANSCRIPT_DIR" ] && TRANSCRIPT_DIRS+=("$WORKLOG_TRANSCRIPT_DIR")
 [ -d "$WORKLOG_CODEX_TRANSCRIPT_DIR" ] && TRANSCRIPT_DIRS+=("$WORKLOG_CODEX_TRANSCRIPT_DIR")
-[ "${#TRANSCRIPT_DIRS[@]}" -gt 0 ] || exit 0
+OMP_DIR=""
+[ -d "$WORKLOG_OMP_TRANSCRIPT_DIR" ] && OMP_DIR="$WORKLOG_OMP_TRANSCRIPT_DIR"
+[ "${#TRANSCRIPT_DIRS[@]}" -gt 0 ] || [ -n "$OMP_DIR" ] || exit 0
 
 # --- candidates -------------------------------------------------------------
 # Touched within the lookback window but not in the last STALE_HOURS. Every
 # prompt appends to its transcript, so mtime is already a per-prompt heartbeat —
 # no extra hook is needed to know when a session went quiet.
-CANDIDATES=$(find "${TRANSCRIPT_DIRS[@]}" -type f -name '*.jsonl' \
-                  -mtime -"$WORKLOG_REAP_LOOKBACK_DAYS" \
-                  ! -newermt "-$WORKLOG_REAP_STALE_HOURS hours" 2>/dev/null)
+CANDIDATES=$(
+    [ "${#TRANSCRIPT_DIRS[@]}" -gt 0 ] && \
+        find "${TRANSCRIPT_DIRS[@]}" -type f -name '*.jsonl' \
+             -mtime -"$WORKLOG_REAP_LOOKBACK_DAYS" \
+             ! -newermt "-$WORKLOG_REAP_STALE_HOURS hours" 2>/dev/null
+    # omp keeps sessions at <root>/<cwd-bucket>/<file>.jsonl; subagent
+    # transcripts sit deeper, in each session's artifact directory, and are part
+    # of their parent's work rather than sessions of their own.
+    [ -n "$OMP_DIR" ] && \
+        find "$OMP_DIR" -mindepth 2 -maxdepth 2 -type f -name '*.jsonl' \
+             -mtime -"$WORKLOG_REAP_LOOKBACK_DAYS" \
+             ! -newermt "-$WORKLOG_REAP_STALE_HOURS hours" 2>/dev/null
+)
 [ -z "$CANDIDATES" ] && exit 0
 
 CONVO=$(mktemp) || exit 0
@@ -123,7 +135,7 @@ while IFS= read -r TRANSCRIPT <&3; do
     sed -i "/^$SESSION_ID\t/d" "$WORKLOG_STATE_DIR/open-sessions.tsv" 2>/dev/null
 done 3<<< "$CANDIDATES"
 
-if [ "$WRITTEN" -gt 0 ] && [ "${WORKLOG_AUTO_SUMMARISE:-}" = "codex" ]; then
+if [ "$WRITTEN" -gt 0 ] && [ -n "${WORKLOG_AUTO_SUMMARISE:-}" ]; then
     bash "$DIR/summary-start.sh" >/dev/null 2>&1
 fi
 

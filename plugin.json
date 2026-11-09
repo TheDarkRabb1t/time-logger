@@ -1,0 +1,13 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "time-logger",
+  "version": "0.7.0",
+  "description": "Session worklogs and weekly timesheet drafts from coding-agent sessions, git history and optionally Jira and your calendar.",
+  "author": {
+    "name": "TheDarkRabb1t",
+    "url": "https://github.com/TheDarkRabb1t"
+  },
+  "repository": "https://github.com/TheDarkRabb1t/time-logger",
+  "license": "MIT",
+  "keywords": ["worklog", "timesheet", "productivity"]
+}

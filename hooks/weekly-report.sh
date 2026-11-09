@@ -516,7 +516,7 @@ Data:
 
 $CONTEXT"
 
-REPORT=$(worklog_model "$WORKLOG_REPORT_MODEL" "$PROMPT" "$WORKLOG_REPORT_TIMEOUT")
+REPORT=$(worklog_model report "$PROMPT" "$WORKLOG_REPORT_TIMEOUT")
 RC=$?
 
 # A killed `claude -p` still writes to stdout — a SIGTERM'd run prints

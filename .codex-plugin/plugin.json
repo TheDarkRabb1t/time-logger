@@ -1,7 +1,7 @@
 {
   "name": "time-logger",
-  "version": "0.6.2",
-  "description": "Logs Claude Code and Codex sessions to a shared weekly worklog and drafts timesheets.",
+  "version": "0.7.0",
+  "description": "Logs Claude Code, Codex and omp sessions to a shared weekly worklog and drafts timesheets.",
   "author": {
     "name": "TheDarkRabb1t",
     "url": "https://github.com/TheDarkRabb1t"

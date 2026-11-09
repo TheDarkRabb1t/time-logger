@@ -1,6 +1,6 @@
 {
   "name": "time-logger",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "description": "Logs every Claude Code session to a weekly worklog and drafts a timesheet from sessions, git history and optionally Jira and your calendar.",
   "author": {
     "name": "TheDarkRabb1t",

@@ -15,6 +15,10 @@ FILL="$REPO/bin/fill-summaries.sh"
 REPORT="$REPO/hooks/weekly-report.sh"
 PASS=0; FAIL=0
 
+# The harness is detected from the environment; running this suite from inside
+# omp or a Codex hook would otherwise switch backends under every test.
+unset OMPCODE PLUGIN_ROOT WORKLOG_HARNESS WORKLOG_AUTO_SUMMARISE WORKLOG_MODEL_BACKEND
+
 # --- helpers ----------------------------------------------------------------
 
 setup() {
@@ -887,6 +891,100 @@ OUT=$(printf '{"session_id":"start-56","cwd":"%s"}' "$SIM" \
     | HOME="$SIM" PATH="$ROOT/bin:$PATH" PLUGIN_ROOT="$REPO" bash "$START_HOOK")
 is "SessionStart adds no conversation context" "$OUT" ""
 wait_for_auto_summary && ok "pending row retried automatically" || no "pending row not retried"
+
+# ============================================================ omp
+
+# mkomp <path> <session_id> <t0> <t1>
+# A prompt, an agent-injected user message that must not count as a turn, a
+# tool call and its result, then a reply. The title slot and model_change are
+# there because every real omp transcript starts with them.
+mkomp() {
+    local f="$1" id="$2" t0="$3" t1="$4"
+    mkdir -p "$(dirname "$f")"
+    {
+        printf '{"type":"title","v":1,"title":"fix","source":"auto"}\n'
+        printf '{"type":"session","version":3,"id":"%s","timestamp":"%s","cwd":"%s/repo"}\n' "$id" "$t0" "$SIM"
+        printf '{"type":"model_change","id":"m1","parentId":null,"timestamp":"%s","model":"x/y"}\n' "$t0"
+        printf '{"type":"message","id":"a1","parentId":"m1","timestamp":"%s","message":{"role":"user","attribution":"user","content":[{"type":"text","text":"fix the omp bug"}]}}\n' "$t0"
+        printf '{"type":"message","id":"a2","parentId":"a1","timestamp":"%s","message":{"role":"user","attribution":"agent","content":[{"type":"text","text":"injected by an extension"}]}}\n' "$t0"
+        printf '{"type":"message","id":"a3","parentId":"a2","timestamp":"%s","message":{"role":"assistant","content":[{"type":"thinking","thinking":"hmm"},{"type":"toolCall","id":"c1","name":"bash","arguments":{}}]}}\n' "$t0"
+        printf '{"type":"message","id":"a4","parentId":"a3","timestamp":"%s","message":{"role":"toolResult","toolCallId":"c1","toolName":"bash","content":[{"type":"text","text":"ok"}]}}\n' "$t0"
+        printf '{"type":"custom","id":"a5","parentId":"a4","timestamp":"%s","customType":"tool_execution_start","data":{}}\n' "$t1"
+        printf '{"type":"message","id":"a6","parentId":"a5","timestamp":"%s","message":{"role":"assistant","content":[{"type":"text","text":"fixed the omp bug"}]}}\n' "$t1"
+    } > "$f"
+}
+
+stub_omp() {
+    cat > "$ROOT/bin/omp" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$HOME/omp-calls"
+printf '%s\n' "${CLAUDE_WORKLOG_CHILD:-}" >> "$HOME/omp-guards"
+echo "Fixed the omp bug. Added coverage."
+SH
+    chmod +x "$ROOT/bin/omp"
+}
+
+OID=01a1a698-c14d-7570-a0f0-b207971f6716
+OF="$SIM/.omp/agent/sessions/-repo/2020-01-01T00-00-00-000Z_$OID.jsonl"
+
+echo "== 57. omp session end records one shared worklog row =="
+setup
+mkomp "$OF" "$OID" "$(iso '10 minutes ago')" "$(iso '7 minutes ago')"
+printf '{"hook_event_name":"SessionEnd","session_id":"%s","cwd":"%s","transcript_path":"%s"}' "$OID" "$SIM" "$OF" \
+    | HOME="$SIM" PATH="$ROOT/bin:$PATH" bash "$LOG_HOOK"
+is "omp row written" "$(rows)" "1"
+is "omp prompt counted once" "$(cell 7)" "1"
+is "omp active minutes" "$(cell 6)" "3"
+grep -qF "<!--sid:$OID" "$WL"/worklog-*.md && ok "omp marker uses session id" || no "omp marker missing"
+grep -q 'fix the omp bug' "$PEND/$OID.txt" && grep -qF '[tool:bash]' "$PEND/$OID.txt" \
+    && ok "omp digest has prompt and tool calls" || no "omp digest incomplete"
+grep -q 'injected by an extension' "$PEND/$OID.txt" \
+    && no "agent-injected message read as a prompt" || ok "agent-injected message left out"
+
+echo "== 58. stale omp sessions are reaped, their subagents are not =="
+setup
+mkomp "$OF" "$OID" "$(iso '25 hours ago')" "$(iso '25 hours ago +4 min')"
+SUB="${OF%.jsonl}/0-Explore.jsonl"
+mkomp "$SUB" 01a1a698-0000-7000-8000-000000000009 "$(iso '25 hours ago')" "$(iso '25 hours ago +4 min')"
+touch -d '24 hours ago' "$OF" "$SUB"
+run; run
+is "one omp row after two reaps" "$(rows)" "1"
+grep -qF "<!--sid:$OID" "$WL"/worklog-*.md && ok "reaped omp row uses session id" || no "omp marker missing"
+
+echo "== 59. omp backend fills a pending summary as a bare child =="
+stub_omp
+HOME="$SIM" PATH="$ROOT/bin:$PATH" WORKLOG_MODEL_BACKEND=omp bash "$FILL" >/dev/null
+is "omp model filled summary" "$(pending)" "0"
+grep -q 'Fixed the omp bug. Added coverage.' "$WL"/worklog-*.md \
+    && ok "omp model text in worklog" || no "omp summary missing"
+grep -q -- '--no-session' "$SIM/omp-calls" && grep -q -- '--no-extensions' "$SIM/omp-calls" \
+    && grep -q -- '--model smol' "$SIM/omp-calls" \
+    && ok "child is sessionless, extension-free, on the smol role" || no "child flags" "$(cat "$SIM/omp-calls")"
+is "child recursion guard set" "$(cat "$SIM/omp-guards")" "1"
+
+echo "== 60. omp SessionEnd launches a quiet child summary =="
+setup
+stub_omp
+mkomp "$OF" "$OID" "$(iso '10 minutes ago')" "$(iso '7 minutes ago')"
+OUT=$(printf '{"hook_event_name":"SessionEnd","session_id":"%s","cwd":"%s","transcript_path":"%s"}' "$OID" "$SIM" "$OF" \
+    | HOME="$SIM" PATH="$ROOT/bin:$PATH" WORKLOG_HARNESS=omp bash "$LOG_HOOK")
+is "SessionEnd has no conversation output" "$OUT" ""
+for n in $(seq 1 50); do
+    [ "$(pending)" = 0 ] && grep -q 'Fixed the omp bug' "$WL"/worklog-*.md 2>/dev/null && break
+    sleep 0.1
+done
+grep -q 'Fixed the omp bug' "$WL"/worklog-*.md && ok "detached omp child filled the row" || no "automatic summary missing"
+
+echo "== 61. WORKLOG_AUTO_SUMMARISE= in config keeps omp rows for /timelog =="
+setup
+stub_omp
+echo 'WORKLOG_AUTO_SUMMARISE=' >> "$SIM/.claude/time-logger/config.sh"
+mkomp "$OF" "$OID" "$(iso '10 minutes ago')" "$(iso '7 minutes ago')"
+printf '{"hook_event_name":"SessionEnd","session_id":"%s","cwd":"%s","transcript_path":"%s"}' "$OID" "$SIM" "$OF" \
+    | HOME="$SIM" PATH="$ROOT/bin:$PATH" WORKLOG_HARNESS=omp bash "$LOG_HOOK"
+sleep 1
+is "row stays pending" "$(pending)" "1"
+[ -f "$SIM/omp-calls" ] && no "child summary started anyway" || ok "no child summary"
 
 echo
 printf 'passed %d, failed %d\n' "$PASS" "$FAIL"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Codex hook helper: start the model worker without holding up the main thread.
+# Hook helper: start the model worker without holding up the main thread.
 set -uo pipefail
 
 [ -n "${CLAUDE_WORKLOG_CHILD:-}" ] && exit 0
@@ -11,7 +11,7 @@ WORKLOG_LIB="$DIR/../lib"
 mkdir -p "$WORKLOG_STATE_DIR" 2>/dev/null || exit 0
 RUNNER=(bash "$DIR/summary-worker.sh")
 command -v setsid >/dev/null 2>&1 && RUNNER=(setsid "${RUNNER[@]}")
-nohup env CLAUDE_WORKLOG_CHILD=1 WORKLOG_MODEL_BACKEND=codex \
+nohup env CLAUDE_WORKLOG_CHILD=1 WORKLOG_MODEL_BACKEND="${WORKLOG_AUTO_SUMMARISE:-codex}" \
     "${RUNNER[@]}" </dev/null >/dev/null 2>&1 &
 disown 2>/dev/null || true
 exit 0
